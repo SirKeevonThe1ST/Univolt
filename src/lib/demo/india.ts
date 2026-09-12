@@ -1,0 +1,63 @@
+export type RiskMix = {
+  grooming: number;
+  cyberbullying: number;
+  blackmail: number;
+  other: number;
+};
+
+export type StateTrend = {
+  code: string;
+  name: string;
+  zone: "north" | "west" | "south" | "east" | "central" | "northeast";
+  x: number;
+  y: number;
+  reportsWeek: number;
+  growth: number;
+  mix: RiskMix;
+  topLang: string;
+  ageBand: string;
+};
+
+/** Synthetic statewide aggregates. No child locations. */
+export const STATE_TRENDS: StateTrend[] = [
+  { code: "MH", name: "Maharashtra", zone: "west", x: 148, y: 248, reportsWeek: 186, growth: 18, mix: { grooming: 42, cyberbullying: 31, blackmail: 17, other: 10 }, topLang: "Hinglish", ageBand: "13–15" },
+  { code: "DL", name: "Delhi", zone: "north", x: 198, y: 118, reportsWeek: 94, growth: 12, mix: { grooming: 33, cyberbullying: 41, blackmail: 14, other: 12 }, topLang: "Hindi", ageBand: "13–15" },
+  { code: "KA", name: "Karnataka", zone: "south", x: 158, y: 312, reportsWeek: 121, growth: 9, mix: { grooming: 38, cyberbullying: 29, blackmail: 19, other: 14 }, topLang: "Kannada", ageBand: "14–16" },
+  { code: "TN", name: "Tamil Nadu", zone: "south", x: 188, y: 368, reportsWeek: 132, growth: 14, mix: { grooming: 40, cyberbullying: 27, blackmail: 21, other: 12 }, topLang: "Tamil", ageBand: "13–15" },
+  { code: "UP", name: "Uttar Pradesh", zone: "north", x: 230, y: 148, reportsWeek: 168, growth: 16, mix: { grooming: 36, cyberbullying: 34, blackmail: 18, other: 12 }, topLang: "Hindi", ageBand: "11–13" },
+  { code: "WB", name: "West Bengal", zone: "east", x: 312, y: 198, reportsWeek: 88, growth: 7, mix: { grooming: 29, cyberbullying: 38, blackmail: 16, other: 17 }, topLang: "Bengali", ageBand: "13–15" },
+  { code: "GJ", name: "Gujarat", zone: "west", x: 108, y: 208, reportsWeek: 76, growth: 11, mix: { grooming: 35, cyberbullying: 28, blackmail: 22, other: 15 }, topLang: "Gujarati", ageBand: "13–15" },
+  { code: "RJ", name: "Rajasthan", zone: "west", x: 138, y: 148, reportsWeek: 64, growth: 6, mix: { grooming: 31, cyberbullying: 33, blackmail: 19, other: 17 }, topLang: "Hindi", ageBand: "12–14" },
+  { code: "TG", name: "Telangana", zone: "south", x: 198, y: 268, reportsWeek: 71, growth: 13, mix: { grooming: 37, cyberbullying: 30, blackmail: 20, other: 13 }, topLang: "Telugu", ageBand: "13–15" },
+  { code: "AP", name: "Andhra Pradesh", zone: "south", x: 208, y: 308, reportsWeek: 69, growth: 8, mix: { grooming: 34, cyberbullying: 32, blackmail: 18, other: 16 }, topLang: "Telugu", ageBand: "13–15" },
+  { code: "KL", name: "Kerala", zone: "south", x: 158, y: 378, reportsWeek: 54, growth: 5, mix: { grooming: 28, cyberbullying: 36, blackmail: 15, other: 21 }, topLang: "Malayalam", ageBand: "14–16" },
+  { code: "BR", name: "Bihar", zone: "east", x: 278, y: 158, reportsWeek: 81, growth: 15, mix: { grooming: 32, cyberbullying: 37, blackmail: 17, other: 14 }, topLang: "Hindi", ageBand: "11–13" },
+  { code: "MP", name: "Madhya Pradesh", zone: "central", x: 188, y: 198, reportsWeek: 73, growth: 8, mix: { grooming: 30, cyberbullying: 35, blackmail: 16, other: 19 }, topLang: "Hindi", ageBand: "13–15" },
+  { code: "PB", name: "Punjab", zone: "north", x: 168, y: 88, reportsWeek: 42, growth: 4, mix: { grooming: 27, cyberbullying: 39, blackmail: 18, other: 16 }, topLang: "Punjabi", ageBand: "13–15" },
+  { code: "HR", name: "Haryana", zone: "north", x: 188, y: 108, reportsWeek: 39, growth: 10, mix: { grooming: 34, cyberbullying: 36, blackmail: 15, other: 15 }, topLang: "Hindi", ageBand: "13–15" },
+  { code: "OR", name: "Odisha", zone: "east", x: 268, y: 238, reportsWeek: 47, growth: 6, mix: { grooming: 26, cyberbullying: 34, blackmail: 20, other: 20 }, topLang: "Odia", ageBand: "12–14" },
+  { code: "AS", name: "Assam", zone: "northeast", x: 358, y: 148, reportsWeek: 33, growth: 9, mix: { grooming: 24, cyberbullying: 40, blackmail: 14, other: 22 }, topLang: "Assamese", ageBand: "13–15" },
+  { code: "JH", name: "Jharkhand", zone: "east", x: 268, y: 188, reportsWeek: 36, growth: 5, mix: { grooming: 28, cyberbullying: 38, blackmail: 16, other: 18 }, topLang: "Hindi", ageBand: "12–14" },
+  { code: "CT", name: "Chhattisgarh", zone: "central", x: 228, y: 228, reportsWeek: 29, growth: 3, mix: { grooming: 25, cyberbullying: 36, blackmail: 17, other: 22 }, topLang: "Hindi", ageBand: "13–15" },
+  { code: "UK", name: "Uttarakhand", zone: "north", x: 218, y: 98, reportsWeek: 18, growth: 2, mix: { grooming: 22, cyberbullying: 41, blackmail: 12, other: 25 }, topLang: "Hindi", ageBand: "13–15" },
+];
+
+export const NATIONAL = {
+  reportsWeek: STATE_TRENDS.reduce((a, s) => a + s.reportsWeek, 0),
+  growth: 12,
+  topThreat: "Possible grooming",
+  languages: [
+    { name: "Hindi / Hinglish", n: 38 },
+    { name: "English", n: 22 },
+    { name: "Tamil", n: 11 },
+    { name: "Telugu", n: 8 },
+    { name: "Bengali", n: 7 },
+    { name: "Marathi", n: 6 },
+    { name: "Other", n: 8 },
+  ],
+};
+
+export function intensity(s: StateTrend, riskType: keyof RiskMix | "all"): number {
+  if (riskType === "all") return s.reportsWeek;
+  return Math.round((s.mix[riskType] / 100) * s.reportsWeek);
+}

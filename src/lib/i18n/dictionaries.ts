@@ -12,14 +12,14 @@ export type Dict = Record<string, string>;
 export const dictionaries: Record<Locale, Dict> = {
   en: {
     appName: "SurakshaNet",
-    tagline: "A quiet place to share, and a careful desk to respond.",
+    tagline: "Don't wait for a child to report harm after it happens.",
     safeExit: "Leave quickly",
     childline: "Talk to someone now",
     childlineNum: "1098",
     childPath: "I want to share something",
     staffPath: "I respond to reports",
     landingLead:
-      "If something online feels wrong, you can tell us privately. You do not have to give your name. You can leave this page in one tap.",
+      "Detect emerging risk, give the child a safe path to support, and help trusted humans intervene. If something online feels wrong, you can tell us privately. You do not have to give your name. You can leave this page in one tap.",
     landingStaff:
       "Responders, NGO desks, and supervisors sign in to the protected console. The model never closes a case on its own.",
     howItWorks: "How detection works",

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { PipelineDiagram } from "@/components/pipeline-diagram";
 
 export const Route = createFileRoute("/console/architecture")({
   component: Architecture,
@@ -9,44 +10,45 @@ function Architecture() {
     <article className="max-w-3xl space-y-6">
       <h1 className="font-display text-3xl font-medium tracking-tight">Architecture</h1>
       <p className="text-sm leading-relaxed text-ink-soft">
-        Production topology is ingestion → scoring → case generation → prioritisation →
-        assignment → human action → resolution. The live app runs this loop in one service
-        with a swappable NLPProvider. A Python microservice and Redis bus are documented as
-        the split deployment; they are not required for this preview.
+        User evidence is processed on the server: OCR / speech-to-text, then a live LLM extracts
+        behavioural signals as structured JSON. A deterministic risk engine scores those signals.
+        A human reviews every consequential action. AI-assisted, human-controlled.
       </p>
+      <PipelineDiagram />
       <pre className="overflow-x-auto rounded-xl border border-border bg-ink p-4 text-xs leading-relaxed text-paper">
-{`flowchart LR
-  subgraph Ingest
-    A[Anonymous report] --> B[Code-mixed preprocess]
-    C[Thread ingest] --> B
-  end
-  B --> D[NLPProvider]
-  D --> E[Flags + classify]
-  E --> F[Stage machine]
-  F --> G[Risk score 0-100]
-  G --> H[Priority P1-P4]
-  H --> I[AI safety case]
-  I --> J[Responder queue]
-  J --> K{Human confirm}
-  K -->|yes| L[Assign / escalate / close]
-  K -->|no| J
-  L --> M[Audit + event log]
-  M --> N[Simulated POCSO export]`}
+{`USER EVIDENCE
+        ↓
+FRONTEND
+        ↓
+SECURE SERVER / API ROUTE
+        ↓
+OCR / SPEECH-TO-TEXT / IMAGE PROCESSING
+        ↓
+LLM PROVIDER (structured JSON)
+        ↓
+SCHEMA VALIDATION
+        ↓
+DETERMINISTIC RISK ENGINE
+        ↓
+EXPLAINABLE SAFETY RESULT
+        ↓
+RESPONDER CASE
+        ↓
+HUMAN REVIEW`}
       </pre>
       <section className="space-y-2 text-sm text-ink-soft">
         <h2 className="font-display text-xl text-ink">OpenAPI-style routes</h2>
         <ul className="space-y-1 font-mono text-xs">
+          <li>POST analyzeEvidence — live LLM analysis (no auth)</li>
+          <li>POST extractScreenshots — vision OCR reconstruction</li>
+          <li>POST transcribeVoice — speech-to-text</li>
+          <li>POST askCopilot / requestBriefing / requestWhatIf</li>
           <li>POST /report — anonymous tip (no auth)</li>
-          <li>GET /console — priority queue (staff)</li>
-          <li>GET /console/cases/:id — case + explainability</li>
-          <li>POST transitionCase — status machine, confirm on escalate/close</li>
-          <li>POST revealIdentity — unseal callback number</li>
-          <li>GET exportSafetyPack — simulated e-evidence JSON</li>
-          <li>GET analytics / audit / scoring_config</li>
+          <li>GET /console — priority queue (staff or demo desk)</li>
         </ul>
       </section>
       <p className="text-xs text-muted">
-        All agency webhooks, KMS, and e-evidence hashing are labeled SIMULATED.
+        API keys stay on the server. The model never contacts police, parents, or authorities.
       </p>
     </article>
   );

@@ -27,6 +27,8 @@
   --radius-xl: 28px;
 
   --shadow-soft: 0 1px 0 rgba(26, 36, 34, 0.04), 0 12px 32px -16px rgba(26, 36, 34, 0.18);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @layer base {
@@ -59,6 +61,48 @@
     background: var(--color-teal-mist);
     color: var(--color-ink);
   }
+}
+
+@layer utilities {
+  .sn-rise {
+    animation: sn-rise 500ms var(--ease-out-soft) both;
+  }
+  .sn-shimmer {
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-teal) 12%, transparent), transparent);
+    background-size: 200% 100%;
+    animation: sn-shimmer 1.4s linear infinite;
+  }
+  .sn-pulse-soft {
+    animation: sn-pulse-soft 1.8s var(--ease-out-soft) infinite;
+  }
+}
+
+@keyframes sn-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes sn-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@keyframes sn-draw {
+  from { stroke-dashoffset: 240; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes sn-pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
 }
 
 @media (prefers-reduced-motion: reduce) {

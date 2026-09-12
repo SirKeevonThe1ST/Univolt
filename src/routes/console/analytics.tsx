@@ -10,16 +10,36 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useDemoStore } from "@/lib/demo/store";
+import { SimMark } from "@/components/sim-mark";
+import { NATIONAL } from "@/lib/demo/india";
 
 export const Route = createFileRoute("/console/analytics")({
   component: Analytics,
 });
 
 function Analytics() {
-  const q = useQuery({ queryKey: ["analytics"], queryFn: () => getAnalytics() });
-  if (q.isPending) return <p className="text-muted">Loading analytics…</p>;
-  if (q.error) return <p className="text-danger">{(q.error as Error).message}</p>;
-  const d = q.data!;
+  const { user } = useCurrentUserState();
+  const cases = useDemoStore((s) => s.cases);
+  const q = useQuery({
+    queryKey: ["analytics"],
+    queryFn: () => getAnalytics(),
+    enabled: Boolean(user),
+  });
+
+  const byBand = ["low", "medium", "high", "critical"].map((b) => ({
+    name: b,
+    n: cases.filter((c) => c.band === b).length,
+  }));
+  const byThreat = Array.from(new Set(cases.map((c) => c.threatLabel))).map((name) => ({
+    name,
+    n: cases.filter((c) => c.threatLabel === name).length,
+  }));
+  const byLang = Array.from(new Set(cases.map((c) => c.languageLabel))).map((name) => ({
+    name,
+    n: cases.filter((c) => c.languageLabel === name).length,
+  }));
 
   return (
     <div className="space-y-8">
@@ -29,34 +49,37 @@ function Analytics() {
           Aggregate only. Region is shown solely when the reporter opted in. No PII.
         </p>
       </header>
+
+      <div className="flex items-center gap-2">
+        <h2 className="font-display text-xl">Demo desk</h2>
+        <SimMark />
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Overdue open cases" value={d.overdue} />
-        <Stat
-          label="Languages"
-          value={d.byLang.reduce((a, x) => a + x.n, 0)}
-        />
-        <Stat label="Flag types" value={d.flagTypes.length} />
+        <Stat label="Demo cases" value={cases.length} />
+        <Stat label="Reports this week (sim)" value={NATIONAL.reportsWeek} />
+        <Stat label="Pattern growth" value={NATIONAL.growth} />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartBlock title="Risk band" data={d.byBand.map((x) => ({ name: x.risk_band, n: x.n }))} />
-        <ChartBlock title="Priority" data={d.byPriority.map((x) => ({ name: x.priority, n: x.n }))} />
-        <ChartBlock title="Language" data={d.byLang.map((x) => ({ name: x.language, n: x.n }))} />
-        <ChartBlock
-          title="Region (opt-in)"
-          data={d.byRegion.map((x) => ({ name: x.region_code, n: x.n }))}
-        />
+        <ChartBlock title="Risk band" data={byBand} />
+        <ChartBlock title="Threat type" data={byThreat} />
+        <ChartBlock title="Language" data={byLang} />
+        <ChartBlock title="National language mix (sim)" data={NATIONAL.languages} />
       </div>
-      <section className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="font-display text-lg">Flag mix</h2>
-        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-          {d.flagTypes.map((f) => (
-            <li key={f.flag_type} className="flex justify-between text-sm">
-              <span className="capitalize text-ink-soft">{f.flag_type.replace(/_/g, " ")}</span>
-              <span className="tabular-nums">{f.n}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+
+      {user && q.data && (
+        <>
+          <h2 className="font-display text-xl">Live queue</h2>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ChartBlock title="Risk band" data={q.data.byBand.map((x) => ({ name: x.risk_band, n: x.n }))} />
+            <ChartBlock title="Priority" data={q.data.byPriority.map((x) => ({ name: x.priority, n: x.n }))} />
+            <ChartBlock title="Language" data={q.data.byLang.map((x) => ({ name: x.language, n: x.n }))} />
+            <ChartBlock
+              title="Region (opt-in)"
+              data={q.data.byRegion.map((x) => ({ name: x.region_code, n: x.n }))}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

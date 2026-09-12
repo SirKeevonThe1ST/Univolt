@@ -6,6 +6,18 @@ export type LangCode =
   | "mr-Latn"
   | "ta"
   | "ta-Latn"
+  | "bn"
+  | "bn-Latn"
+  | "te"
+  | "te-Latn"
+  | "kn"
+  | "kn-Latn"
+  | "ml"
+  | "ml-Latn"
+  | "gu"
+  | "gu-Latn"
+  | "pa"
+  | "pa-Latn"
   | "und";
 
 export type RiskLabel =
@@ -31,7 +43,11 @@ export type FlagName =
   | "platform_migration"
   | "image_request"
   | "age_gap"
-  | "distress";
+  | "distress"
+  | "age_probe"
+  | "trust_build"
+  | "blackmail"
+  | "unwanted_contact";
 
 export type ExtractedFlags = Record<FlagName, boolean> & {
   hits: { flag: FlagName; label: string }[];
@@ -61,6 +77,23 @@ export type SafetyCasePack = {
   recommended_urgency: "P1" | "P2" | "P3" | "P4";
   human_confirmation_required: true;
   pocso_note: string;
+  /** Was this pack built from a real LLM call, or the offline lexicon fallback? */
+  analysis_mode?: "live" | "fallback";
+  model?: string | null;
+  model_confidence?: number;
+  language_label?: string;
+  /** Indicator-level detail from the LLM, for the "why was this flagged" view. */
+  indicators?: {
+    type: string;
+    label: string;
+    severity: "low" | "medium" | "high" | "critical";
+    confidence: number;
+    evidence: string;
+    source: string;
+    why_it_matters: string;
+    contribution: number;
+  }[];
+  uncertainty?: string[];
 };
 
 export type ThreadTurn = {

@@ -7,6 +7,11 @@ import { redactText, sha256Hex } from "../privacy/redact";
 import { nid, publicCaseId } from "../utils";
 import { writeAudit, writeEvent } from "./audit";
 import type { ThreadTurn } from "../nlp/types";
+import { analyzeConversation } from "@/lib/ai/analyze";
+import { scoreAnalysis } from "@/lib/ai/risk-engine";
+import { buildLiveSafetyCasePack } from "@/lib/ai/case-pack";
+import type { SafetyCasePack } from "../nlp/types";
+import type { DemoMessage } from "@/lib/demo/types";
 
 export type IngestInput = {
   source: "anonymous_tip" | "anonymous_callback" | "ingested_thread" | "synthetic_seed";
@@ -54,14 +59,51 @@ export async function ingestThread(input: IngestInput): Promise<{
     : [{ speaker: "reporter" as const, text: "(empty report)" }];
 
   const joinedLang = nlpProvider.detect_language(turns.map((t) => t.text).join(" "));
-  const scored = scoreThread(turns, weights, 0);
+
+  // Try the REAL LLM pipeline first (analyze.ts -> deterministic risk-engine.ts).
+  // Only fall back to the offline lexicon classifier (scoring.ts) if the model
+  // is unreachable/unconfigured — and the resulting pack is honestly labelled
+  // either way (see case-pack.ts / SafetyCasePack.analysis_mode).
+  const llmMessages: DemoMessage[] = turns.map((t) => ({
+    speaker: t.speaker === "other" ? "other" : "child",
+    text: t.text,
+    source: "paste",
+  }));
+  const live = await analyzeConversation({ messages: llmMessages });
+
+  let score: number;
+  let band: "low" | "med" | "high" | "critical";
+  let stage: "contact" | "trust_building" | "isolation" | "exploitation_attempt";
+  let factors: { key: string; label: string; points: number }[];
+  let livePack: SafetyCasePack | null = null;
+  let distress: boolean;
+  let priority: ReturnType<typeof prioritise>["priority"];
+  let fallbackScored: ReturnType<typeof scoreThread> | null = null;
+
+  if (live.ok) {
+    const risk = scoreAnalysis(live.analysis);
+    livePack = buildLiveSafetyCasePack({
+      analysis: live.analysis,
+      risk,
+      turns,
+      modelName: live.result.modelName ?? "unknown",
+    });
+    score = risk.score;
+    band = livePack.risk_band;
+    stage = livePack.stage;
+    factors = risk.contributions.map((c) => ({ key: c.type, label: c.label, points: c.contribution }));
+    distress = livePack.risk_band === "critical" || (input.severity ?? 0) >= 4;
+    priority = livePack.recommended_urgency;
+  } else {
+    fallbackScored = scoreThread(turns, weights, 0);
+    score = fallbackScored.score;
+    band = fallbackScored.band;
+    stage = fallbackScored.stage;
+    factors = fallbackScored.factors;
+    distress = fallbackScored.flags.distress || (input.severity ?? 0) >= 4;
+    priority = prioritise({ band, stage, distress }).priority;
+  }
   const { history } = analyseProgression(turns);
-  const distress = scored.flags.distress || (input.severity ?? 0) >= 4;
-  const { priority } = prioritise({
-    band: scored.band,
-    stage: scored.stage,
-    distress,
-  });
 
   const now = new Date();
   const due = slaDueAt(now, priority);
@@ -78,7 +120,7 @@ export async function ingestThread(input: IngestInput): Promise<{
       sla_due_at, last_activity_at, ai_generated, identity_sealed, retention_until
     ) values (
       ${id}, ${publicId}, ${input.source}, ${"new"}, ${priority},
-      ${scored.score}, ${scored.band}, ${scored.stage},
+      ${score}, ${band}, ${stage},
       ${joinedLang}, ${input.regionCode ?? null}, ${Boolean(input.callbackRequested)},
       ${distress}, ${null}, ${due.toISOString()}, ${now.toISOString()},
       ${true}, ${true}, ${retentionUntil.toISOString()}
@@ -107,8 +149,8 @@ export async function ingestThread(input: IngestInput): Promise<{
   await sql`
     insert into scores (id, case_id, message_id, score, risk_band, contributing_factors)
     values (
-      ${nid("scr")}, ${id}, ${null}, ${scored.score}, ${scored.band},
-      ${JSON.stringify(scored.factors)}::jsonb
+      ${nid("scr")}, ${id}, ${null}, ${score}, ${band},
+      ${JSON.stringify(factors)}::jsonb
     )
   `;
 
@@ -124,17 +166,31 @@ export async function ingestThread(input: IngestInput): Promise<{
     event: `${h.stage}: ${h.reason}`,
   }));
 
-  const pack = nlpProvider.draft_safety_case({
-    evidence: turns.map((t) => ({ ...t, text: redactText(t.text).text })),
-    timeline,
-    classification: scored.classification,
-    flags: scored.flags,
-    stage: scored.stage,
-    score: scored.score,
-    band: scored.band,
-    priority,
-    language: joinedLang,
-  });
+  // Prefer the pack built from the real LLM call. Only build the offline
+  // lexicon pack if the model was unreachable — and label it as a fallback
+  // rather than silently presenting rule-matching as "AI analysis".
+  const pack: SafetyCasePack =
+    livePack ??
+    {
+      ...nlpProvider.draft_safety_case({
+        evidence: turns.map((t) => ({ ...t, text: redactText(t.text).text })),
+        timeline,
+        classification: fallbackScored!.classification,
+        flags: fallbackScored!.flags,
+        stage,
+        score,
+        band,
+        priority,
+        language: joinedLang,
+      }),
+      analysis_mode: "fallback" as const,
+      label: "AI-generated — human review required" as const,
+      pocso_note:
+        `DEMO FALLBACK — AI SERVICE UNAVAILABLE. ${live.ok ? "" : live.error ?? ""} ` +
+        "This pack was built from the offline rule/lexicon classifier, not a live model call. " +
+        "SIMULATED pack. Not a POCSO complaint, not e-evidence, and not a filing with any agency. " +
+        "A designated human officer must confirm before any irreversible step.",
+    };
 
   await sql`
     insert into safety_cases (id, case_id, pack)
@@ -163,10 +219,12 @@ export async function ingestThread(input: IngestInput): Promise<{
 
   await writeEvent(id, "case.ingested", {
     publicId,
-    band: scored.band,
+    band,
     priority,
-    stage: scored.stage,
+    stage,
     ai_generated: true,
+    analysis_mode: live.ok ? "live" : "fallback",
+    model: live.ok ? live.result.modelName ?? null : null,
   });
   await writeAudit({
     actorId: null,
@@ -174,7 +232,7 @@ export async function ingestThread(input: IngestInput): Promise<{
     action: "case.ingested",
     resourceType: "case",
     resourceId: id,
-    metadata: { source: input.source, band: scored.band, priority },
+    metadata: { source: input.source, band, priority, analysis_mode: live.ok ? "live" : "fallback" },
   });
 
   if (priority === "P1") {
@@ -187,9 +245,9 @@ export async function ingestThread(input: IngestInput): Promise<{
   return {
     id,
     publicId,
-    score: scored.score,
-    band: scored.band,
+    score,
+    band,
     priority,
-    stage: scored.stage,
+    stage,
   };
 }

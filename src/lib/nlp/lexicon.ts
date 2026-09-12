@@ -95,3 +95,23 @@ export const BENIGN_SCHOOL = [
   "minecraft", "roblox", "birthday", "festival", "diwali", "holi",
   "school picnic", "teacher", "assignment",
 ] as const;
+
+export const AGE_PROBE = [
+  "how old are you", "how old r u", "what age", "kitne saal", "kitni umar",
+  "umar kya", "what school", "which school", "school kaha", "school kahaan",
+  "what class", "which class", "what grade", "kaunsi class", "school peru",
+  "school naam", "where do you study",
+] as const;
+
+export const BLACKMAIL = [
+  "i have your photos", "i have your pictures", "i will post", "i'll post",
+  "ill post", "or i will send", "everyone will see", "send more or",
+  "nahi to post", "warna daal dunga", "blackmail", "i'll tell everyone",
+  "ill tell everyone", "or else",
+] as const;
+
+export const UNWANTED = [
+  "why aren't you replying", "why arent you replying", "answer me now",
+  "i messaged you 10 times", "stop ignoring", "reply instantly",
+  "abhi reply", "turant jawab",
+] as const;

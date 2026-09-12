@@ -1,12 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { Mic, Paperclip } from "lucide-react";
 import { ChildChrome } from "@/components/child-chrome";
 import { SeverityPicker } from "@/components/severity-picker";
 import { Button } from "@/components/ui/button";
 import { Label, Textarea, Input } from "@/components/ui/input";
 import { useI18n } from "@/components/i18n-provider";
 import { submitAnonymousReport } from "@/lib/server/report";
+import { analyzeEvidence } from "@/lib/server/ai";
+import { useDemoStore } from "@/lib/demo/store";
+import { ScreenshotUploader, type Shot } from "@/components/screenshot-uploader";
+import { VoiceRecorder, type VoiceNote } from "@/components/voice-recorder";
+import { transcribeVoice } from "@/lib/server/ai";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/report")({ component: Report });
@@ -20,32 +24,80 @@ const STATES = [
 function Report() {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const ingest = useDemoStore((s) => s.ingestChildReport);
   const [severity, setSeverity] = useState(2);
   const [text, setText] = useState("");
   const [callback, setCallback] = useState(false);
   const [contact, setContact] = useState("");
   const [region, setRegion] = useState("");
-  const [screenshot, setScreenshot] = useState(false);
-  const [voice, setVoice] = useState(false);
+  const [shots, setShots] = useState<Shot[]>([]);
+  const [voice, setVoice] = useState<VoiceNote | null>(null);
+  const [transcription, setTranscription] = useState<string | null>(null);
+  const [sttUnavailable, setSttUnavailable] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [showShots, setShowShots] = useState(false);
+  const [showVoice, setShowVoice] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleTranscribe(note: VoiceNote) {
+    setTranscribing(true);
+    setSttUnavailable(false);
+    try {
+      const res = await transcribeVoice({ data: { base64: note.base64, mime: note.mime } });
+      if (res.ok) setTranscription(res.text);
+      else {
+        setSttUnavailable(true);
+        setTranscription(null);
+      }
+    } catch {
+      setSttUnavailable(true);
+    } finally {
+      setTranscribing(false);
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
+      const combined = [text.trim(), transcription ? `Voice: ${transcription}` : ""].filter(Boolean).join("\n");
       const res = await submitAnonymousReport({
         data: {
-          text,
+          text: combined,
           severity,
           callback,
           contact: callback ? contact : undefined,
           region: region || null,
-          screenshot,
-          voice,
+          screenshot: shots.length > 0,
+          voice: Boolean(voice),
         },
       });
+
+      let analysis = null;
+      if (combined) {
+        const ai = await analyzeEvidence({
+          data: {
+            messages: [{ speaker: "child", text: combined, source: "paste", sourceLabel: "Child report" }],
+            images: shots.map((s) => ({ name: s.name, dataUrl: s.dataUrl })),
+            transcriptionNote: voice && !transcription ? "Voice note attached. Automatic transcription unavailable." : undefined,
+          },
+        });
+        if (ai.ok) analysis = ai.result;
+      }
+
+      ingest({
+        text: combined || `Severity ${severity} — no written note.`,
+        analysis,
+        screenshots: shots.map((s) => ({ name: s.name, dataUrl: s.dataUrl })),
+        voice: voice
+          ? { durationSec: voice.durationSec, mime: voice.mime, transcription: transcription ?? undefined }
+          : undefined,
+        region: region || undefined,
+        anonymous: !callback,
+      });
+
       await navigate({
         to: "/report/done",
         search: { id: res.publicId },
@@ -84,34 +136,44 @@ function Report() {
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button
             type="button"
-            variant={screenshot ? "default" : "outline"}
-            onClick={() => setScreenshot((v) => !v)}
+            variant={showShots || shots.length ? "default" : "outline"}
+            onClick={() => setShowShots((v) => !v)}
           >
-            <Paperclip /> {t("attachPhoto")}
+            {t("attachPhoto")}
+            {shots.length > 0 ? ` · ${shots.length}` : ""}
           </Button>
           <Button
             type="button"
-            variant={voice ? "default" : "outline"}
-            onClick={() => setVoice((v) => !v)}
+            variant={showVoice || voice ? "default" : "outline"}
+            onClick={() => setShowVoice((v) => !v)}
           >
-            <Mic /> {t("attachVoice")}
+            {t("attachVoice")}
+            {voice ? " · recorded" : ""}
           </Button>
         </div>
-        {screenshot && <p className="text-xs text-muted">{t("screenshotStub")}</p>}
-        {voice && <p className="text-xs text-muted">{t("voiceStub")}</p>}
+
+        {showShots && <ScreenshotUploader shots={shots} onChange={setShots} compact />}
+        {showVoice && (
+          <VoiceRecorder
+            note={voice}
+            onChange={(n) => {
+              setVoice(n);
+              if (!n) {
+                setTranscription(null);
+                setSttUnavailable(false);
+              }
+            }}
+            onTranscribe={(n) => void handleTranscribe(n)}
+            transcription={transcription}
+            transcribing={transcribing}
+            transcriptionUnavailable={sttUnavailable}
+          />
+        )}
 
         <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Toggle
-              selected={!callback}
-              onClick={() => setCallback(false)}
-              label={t("stayAnon")}
-            />
-            <Toggle
-              selected={callback}
-              onClick={() => setCallback(true)}
-              label={t("wantCallback")}
-            />
+            <Toggle selected={!callback} onClick={() => setCallback(false)} label={t("stayAnon")} />
+            <Toggle selected={callback} onClick={() => setCallback(true)} label={t("wantCallback")} />
           </div>
           {callback && (
             <div className="space-y-2">

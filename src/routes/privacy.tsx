@@ -1,17 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ChildChrome } from "@/components/child-chrome";
+import { PrivacyFlow } from "@/components/privacy-flow";
+import { ResponsibleAi } from "@/components/responsible-ai";
+import { SimMark } from "@/components/sim-mark";
 
 export const Route = createFileRoute("/privacy")({ component: Privacy });
 
 function Privacy() {
   return (
     <ChildChrome>
-      <article className="prose-sn mx-auto max-w-2xl space-y-6">
-        <h1 className="font-display text-3xl font-medium tracking-tight">Privacy & law notes</h1>
-        <p className="text-ink-soft leading-relaxed">
-          SurakshaNet is a protective, detective system. It is not a court, not a police desk,
-          and not a substitute for Childline 1098 or a POCSO filing.
-        </p>
+      <article className="mx-auto max-w-3xl space-y-8">
+        <div>
+          <SimMark>Protective system · human confirmation required</SimMark>
+          <h1 className="mt-3 font-display text-3xl font-medium tracking-tight">Privacy & law notes</h1>
+          <p className="mt-3 text-ink-soft leading-relaxed">
+            SurakshaNet is a protective, detective system. It is not a court, not a police desk,
+            and not a substitute for Childline 1098 or a POCSO filing.
+          </p>
+        </div>
+        <PrivacyFlow />
+        <ResponsibleAi />
         <section className="space-y-2">
           <h2 className="font-display text-xl">What we keep — and what we refuse</h2>
           <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-ink-soft">
@@ -40,14 +48,6 @@ function Privacy() {
             not hash-chained e-evidence, and not a complaint under the Protection of Children from
             Sexual Offences Act. A designated officer must review, confirm, and file through real
             channels. Agency integrations in this build are stubs.
-          </p>
-        </section>
-        <section className="space-y-2">
-          <h2 className="font-display text-xl">In transit and at rest</h2>
-          <p className="text-sm leading-relaxed text-ink-soft">
-            TLS is provided by the hosting platform. Application-level AES-256-GCM covers sealed
-            identity fields. Retention defaults to 365 days and can be shortened on human confirm
-            after close.
           </p>
         </section>
       </article>

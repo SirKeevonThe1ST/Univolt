@@ -17,6 +17,9 @@ import { Textarea } from "@/components/ui/input";
 import type { CaseStatus } from "@/lib/pipeline/lifecycle";
 import { toast } from "sonner";
 import type { SafetyCasePack } from "@/lib/nlp/types";
+import { useDemoStore } from "@/lib/demo/store";
+import { DemoCaseWorkspace } from "@/components/demo-case-workspace";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/console/cases/$caseId")({
   component: CaseDetail,
@@ -24,10 +27,20 @@ export const Route = createFileRoute("/console/cases/$caseId")({
 
 function CaseDetail() {
   const { caseId } = Route.useParams();
+  const demoCase = useDemoStore((s) =>
+    s.cases.find((c) => c.id === caseId || c.publicId === caseId),
+  );
+  if (demoCase) return <DemoCaseWorkspace c={demoCase} />;
+  return <LiveCase caseId={caseId} />;
+}
+
+function LiveCase({ caseId }: { caseId: string }) {
+  const { user } = useCurrentUserState();
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ["case", caseId],
     queryFn: () => getCase({ data: caseId }),
+    enabled: Boolean(user),
   });
   const [note, setNote] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -112,10 +125,9 @@ function CaseDetail() {
     }
   }
 
-  function onPrint() {
-    window.print();
+  if (!user) {
+    return <p className="text-muted">Sign in to open live cases, or pick a demo case from the queue.</p>;
   }
-
   if (q.isPending) return <p className="text-muted">Loading case…</p>;
   if (q.error) return <p className="text-danger">{(q.error as Error).message}</p>;
   const data = q.data;
@@ -168,7 +180,7 @@ function CaseDetail() {
           <Button variant="outline" size="sm" onClick={onExport}>
             Export JSON
           </Button>
-          <Button variant="outline" size="sm" onClick={onPrint}>
+          <Button variant="outline" size="sm" onClick={() => window.print()}>
             Print / PDF
           </Button>
         </div>
@@ -181,35 +193,28 @@ function CaseDetail() {
       {pack && (
         <section className="rounded-xl border border-border bg-surface p-5 print:hidden">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-display text-lg">AI-assisted safety case</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={regen.isPending}
-              onClick={() => regen.mutate()}
-            >
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-display text-lg">AI-assisted safety case</h2>
+              {pack.analysis_mode === "fallback" ? (
+                <Badge tone="danger">DEMO FALLBACK — AI SERVICE UNAVAILABLE</Badge>
+              ) : (
+                <Badge tone="teal">LIVE LLM ANALYSIS{pack.model ? ` · ${pack.model}` : ""}</Badge>
+              )}
+            </div>
+            <Button variant="outline" size="sm" disabled={regen.isPending} onClick={() => regen.mutate()}>
               {regen.isPending ? "Generating…" : "Regenerate safety case"}
             </Button>
           </div>
-          <p className="mt-1 text-xs text-muted">
-            Rebuilt from the redacted evidence already on this case — never re-reads raw input,
-            never adds turns that aren't on record.
-          </p>
-
           <div className="mt-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-teal-deep">
-              Detected evidence
-            </p>
+            <p className="text-xs font-medium uppercase tracking-wide text-teal-deep">Detected evidence</p>
             <ol className="mt-2 space-y-2 text-sm">
               {pack.redacted_evidence.map((e) => (
                 <li key={e.turn} className="text-ink-soft">
-                  <span className="font-mono text-xs text-muted">#{e.turn} {e.speaker}</span>{" "}
-                  {e.excerpt}
+                  <span className="font-mono text-xs text-muted">#{e.turn} {e.speaker}</span> {e.excerpt}
                 </li>
               ))}
             </ol>
           </div>
-
           <div className="mt-4">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-medium uppercase tracking-wide text-teal-deep">
@@ -230,16 +235,9 @@ function CaseDetail() {
             </div>
             {editingSummary ? (
               <div className="mt-2 space-y-2">
-                <Textarea
-                  value={summaryDraft ?? ""}
-                  onChange={(e) => setSummaryDraft(e.target.value)}
-                />
+                <Textarea value={summaryDraft ?? ""} onChange={(e) => setSummaryDraft(e.target.value)} />
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    disabled={saveSummaryEdit.isPending}
-                    onClick={() => saveSummaryEdit.mutate()}
-                  >
+                  <Button size="sm" disabled={saveSummaryEdit.isPending} onClick={() => saveSummaryEdit.mutate()}>
                     Save edit as note
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => setEditingSummary(false)}>
@@ -249,9 +247,7 @@ function CaseDetail() {
               </div>
             ) : (
               <>
-                <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-                  {pack.incident_summary}
-                </p>
+                <p className="mt-2 text-sm leading-relaxed text-ink-soft">{pack.incident_summary}</p>
                 <p className="mt-2 text-sm text-ink-soft">{pack.explanation.plain_summary}</p>
               </>
             )}
@@ -267,38 +263,40 @@ function CaseDetail() {
               ))}
             </ul>
           </div>
+          {pack.indicators && pack.indicators.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-teal-deep">
+                Why was this flagged?
+              </p>
+              <ul className="mt-2 space-y-2">
+                {pack.indicators.map((ind) => (
+                  <li key={ind.type} className="rounded-lg border border-border bg-paper p-3 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium">{ind.label}</span>
+                      <span className="text-xs text-muted">
+                        {Math.round(ind.confidence * 100)}% confidence · +{ind.contribution}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-ink-soft">{ind.why_it_matters}</p>
+                    <p className="mt-1 font-mono text-xs text-muted">
+                      "{ind.evidence}" — {ind.source}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {pack.uncertainty && pack.uncertainty.length > 0 && (
+            <p className="mt-3 text-xs text-muted">
+              Uncertainty: {pack.uncertainty.join("; ")}
+            </p>
+          )}
           <p className="mt-4 text-xs text-muted">{pack.pocso_note}</p>
-        </section>
-      )}
-      {!pack && (
-        <section className="rounded-xl border border-border bg-surface p-5 print:hidden">
-          <h2 className="font-display text-lg">AI-assisted safety case</h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            No pack yet on this case.
-          </p>
-          <Button
-            className="mt-3"
-            disabled={regen.isPending}
-            onClick={() => regen.mutate()}
-          >
-            {regen.isPending ? "Generating…" : "Generate safety case"}
-          </Button>
-        </section>
-      )}
-      {pack && (
-        <section className="hidden rounded-xl border border-border bg-surface p-5 print:block">
-          <h2 className="font-display text-lg">Incident summary</h2>
-          <p className="mt-2 text-sm leading-relaxed text-ink-soft">{pack.incident_summary}</p>
-          <p className="mt-3 text-sm text-ink-soft">{pack.explanation.plain_summary}</p>
         </section>
       )}
 
       <section className="rounded-xl border border-border bg-surface p-5">
         <h2 className="font-display text-lg">Grooming progression timeline</h2>
-        <p className="mt-1 text-sm text-ink-soft">
-          Behavioural stages the pipeline actually detected in this thread, with risk re-scored at
-          each transition. Risk indicators for review — not proof of abuse.
-        </p>
         <div className="mt-4">
           <StageTimeline timeline={data.timeline} />
         </div>
@@ -317,11 +315,6 @@ function CaseDetail() {
               </li>
             ))}
           </ol>
-          {data.attachments.length > 0 && (
-            <p className="mt-3 text-xs text-muted">
-              Sealed attachments: {data.attachments.map((a) => a.kind).join(", ")} (not displayed)
-            </p>
-          )}
         </section>
         <section className="rounded-xl border border-border bg-surface p-5">
           <h2 className="font-display text-lg">Events</h2>
@@ -332,13 +325,6 @@ function CaseDetail() {
               </li>
             ))}
           </ul>
-          <div className="mt-3 flex flex-wrap gap-1">
-            {data.flags.map((f, i) => (
-              <Badge key={i} tone="warn">
-                {f.flag_type.replace(/_/g, " ")}
-              </Badge>
-            ))}
-          </div>
         </section>
       </div>
 
@@ -372,8 +358,7 @@ function CaseDetail() {
         {data.hasSealedIdentity && (
           <div className="mt-4 border-t border-border pt-4">
             <p className="text-sm text-ink-soft">
-              A callback number is sealed on this case. Unsealing is logged and is for legal
-              escalation only.
+              A callback number is sealed on this case. Unsealing is logged.
             </p>
             {revealed ? (
               <p className="mt-2 font-mono text-sm">{revealed}</p>
@@ -409,12 +394,7 @@ function CaseDetail() {
           onChange={(e) => setNote(e.target.value)}
           placeholder="Internal note — do not paste unredacted child data"
         />
-        <Button
-          className="mt-2"
-          size="sm"
-          disabled={!note.trim() || noteMut.isPending}
-          onClick={() => noteMut.mutate()}
-        >
+        <Button className="mt-2" size="sm" disabled={!note.trim() || noteMut.isPending} onClick={() => noteMut.mutate()}>
           Add note
         </Button>
       </section>

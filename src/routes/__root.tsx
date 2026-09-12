@@ -16,7 +16,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "Multilingual Indian child-safety reporting and responder desk. Human-confirmed actions only.",
+          "An AI-powered child safety early-warning and human-intervention platform. Detect → Understand → Predict → Protect. Human decision required.",
       },
     ],
     links: [

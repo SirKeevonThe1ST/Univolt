@@ -1,14 +1,18 @@
 import { containsAny, preprocess } from "./preprocess.ts";
 import {
   AGE_GAP,
+  AGE_PROBE,
   BENIGN_SECRECY,
+  BLACKMAIL,
   DISTRESS,
+  GROOMING_TRUST,
   IMAGE_REQUEST,
   INCENTIVE,
   ISOLATION,
   PII_REQUEST,
   PLATFORM_MIGRATION,
   SECRECY,
+  UNWANTED,
 } from "./lexicon.ts";
 import type { ExtractedFlags, FlagName, ThreadTurn } from "./types.ts";
 
@@ -38,6 +42,14 @@ export function extractFlags(turn: string, context: ThreadTurn[] = []): Extracte
   push("platform_migration", "Attempt to move off this platform", hit(p.gloss, PLATFORM_MIGRATION));
   push("age_gap", "Adult-minor age-gap linguistic signal", hit(joined, AGE_GAP));
   push("distress", "Distress or fear language from the reporter", hit(p.gloss, DISTRESS));
+  push("age_probe", "Age or identity probing", hit(p.gloss, AGE_PROBE));
+  push("trust_build", "Trust-building / special-bond language", hit(p.gloss, GROOMING_TRUST));
+  push("blackmail", "Threat or blackmail language", hit(p.gloss, BLACKMAIL));
+
+  const otherTurns = context.filter((t) => t.speaker === "other").length;
+  if (otherTurns >= 4 && hit(joined, UNWANTED)) {
+    push("unwanted_contact", "Repeated unwanted contact", "repeat");
+  }
 
   const present = (f: FlagName) => hits.some((h) => h.flag === f);
 
@@ -50,6 +62,10 @@ export function extractFlags(turn: string, context: ThreadTurn[] = []): Extracte
     image_request: present("image_request"),
     age_gap: present("age_gap"),
     distress: present("distress"),
+    age_probe: present("age_probe"),
+    trust_build: present("trust_build"),
+    blackmail: present("blackmail"),
+    unwanted_contact: present("unwanted_contact"),
     hits,
   };
 }

@@ -35,6 +35,7 @@ export type CaseRow = {
   identity_sealed: boolean;
   created_at: string;
   assigned_name: string | null;
+  analysis_mode: "live" | "fallback" | null;
 };
 
 export const listCases = createServerFn({ method: "GET" })
@@ -50,9 +51,11 @@ export const listCases = createServerFn({ method: "GET" })
         c.assigned_to, c.sla_due_at::text as sla_due_at,
         c.last_activity_at::text as last_activity_at, c.ai_generated, c.identity_sealed,
         c.created_at::text as created_at,
-        s.display_name as assigned_name
+        s.display_name as assigned_name,
+        sc.pack ->> 'analysis_mode' as analysis_mode
       from cases c
       left join staff_profiles s on s.user_id = c.assigned_to
+      left join safety_cases sc on sc.case_id = c.id
       order by
         case c.priority when 'P1' then 1 when 'P2' then 2 when 'P3' then 3 else 4 end,
         c.sla_due_at asc
@@ -327,25 +330,63 @@ export const regenerateSafetyCase = createServerFn({ method: "POST" })
       text: m.redacted_text,
     }));
 
-    const weights = await loadWeights();
-    const scored = scoreThread(turns, weights);
-
-    const pack = nlpProvider.draft_safety_case({
-      // Evidence is the already-redacted, already-stored text — regenerating
-      // never re-reads raw input and never adds turns that aren't on record.
-      evidence: turns,
-      timeline: stages.map((s) => ({ at: s.entered_at, event: `${s.stage}: ${s.reason}` })),
-      classification: scored.classification,
-      flags: scored.flags,
-      stage: scored.stage,
-      score: scored.score,
-      band: scored.band,
-      priority: row.priority,
-      language: row.language as LangCode,
+    // Regenerating a case tries the REAL LLM first (same pipeline as the
+    // Intelligence page), and only falls back to the offline lexicon
+    // classifier if the model is unavailable — never presenting one as the
+    // other. Evidence is the already-redacted, already-stored text;
+    // regenerating never re-reads raw input.
+    const { analyzeConversation } = await import("@/lib/ai/analyze");
+    const { scoreAnalysis } = await import("@/lib/ai/risk-engine");
+    const { buildLiveSafetyCasePack } = await import("@/lib/ai/case-pack");
+    const live = await analyzeConversation({
+      messages: turns.map((t) => ({ speaker: t.speaker === "other" ? "other" : "child", text: t.text })),
     });
 
+    const weights = await loadWeights();
+    let pack: SafetyCasePack;
+    let score: number;
+    let band: string;
+    let stage: string;
+
+    if (live.ok) {
+      const risk = scoreAnalysis(live.analysis);
+      pack = buildLiveSafetyCasePack({
+        analysis: live.analysis,
+        risk,
+        turns,
+        modelName: live.result.modelName ?? "unknown",
+      });
+      score = risk.score;
+      band = pack.risk_band;
+      stage = pack.stage;
+    } else {
+      const scored = scoreThread(turns, weights);
+      pack = {
+        ...nlpProvider.draft_safety_case({
+          evidence: turns,
+          timeline: stages.map((s) => ({ at: s.entered_at, event: `${s.stage}: ${s.reason}` })),
+          classification: scored.classification,
+          flags: scored.flags,
+          stage: scored.stage,
+          score: scored.score,
+          band: scored.band,
+          priority: row.priority,
+          language: row.language as LangCode,
+        }),
+        analysis_mode: "fallback",
+        pocso_note:
+          `DEMO FALLBACK — AI SERVICE UNAVAILABLE. ${live.error ?? ""} ` +
+          "This pack was built from the offline rule/lexicon classifier, not a live model call. " +
+          "SIMULATED pack. Not a POCSO complaint, not e-evidence, and not a filing with any agency. " +
+          "A designated human officer must confirm before any irreversible step.",
+      };
+      score = scored.score;
+      band = scored.band;
+      stage = scored.stage;
+    }
+
     await sql`
-      update cases set risk_score = ${scored.score}, risk_band = ${scored.band}, stage = ${scored.stage}
+      update cases set risk_score = ${score}, risk_band = ${band}, stage = ${stage}
       where id = ${id}
     `;
     await sql`
@@ -353,7 +394,7 @@ export const regenerateSafetyCase = createServerFn({ method: "POST" })
       values (${nid("sft")}, ${id}, ${JSON.stringify(pack)}::jsonb)
       on conflict (case_id) do update set pack = excluded.pack, created_at = now()
     `;
-    await writeEvent(id, "safety_case.regenerated", { risk_score: scored.score });
+    await writeEvent(id, "safety_case.regenerated", { risk_score: score, analysis_mode: live.ok ? "live" : "fallback" });
     await writeAudit({
       actorId: context.userId,
       actorRole: me.role,

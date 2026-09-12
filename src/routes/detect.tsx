@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ChildChrome } from "@/components/child-chrome";
 import { Button } from "@/components/ui/button";
@@ -25,10 +25,13 @@ function Detect() {
         <p className="text-sm font-medium text-teal">Labeled synthetic set only</p>
         <h1 className="mt-2 font-display text-3xl font-medium tracking-tight">How detection works</h1>
         <p className="mt-3 max-w-2xl text-ink-soft leading-relaxed">
-          Click a prepared example. The engine classifies language (English, Hindi, Hinglish,
-          Tamil-English), extracts behavioural flags, advances a stage machine, and scores 0–100.
-          No live predatory dialogue is generated. AI never decides an intervention.
+          Click a prepared example. The engine classifies language, extracts behavioural flags,
+          advances a stage machine, and scores 0–100. No live predatory dialogue is generated.
+          AI never decides an intervention.
         </p>
+        <Button className="mt-4" asChild>
+          <Link to="/intelligence">Open the full Safety Intelligence demo</Link>
+        </Button>
 
         <div className="mt-6 flex flex-wrap gap-2">
           {SYNTHETIC_THREADS.map((t) => (

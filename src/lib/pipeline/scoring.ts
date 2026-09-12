@@ -84,6 +84,10 @@ export function scoreThread(
   addFlag("pii_request", "Identifier request");
   addFlag("image_request", "Image request");
   addFlag("age_gap", "Age-gap signal");
+  addFlag("age_probe", "Age / identity probing");
+  addFlag("trust_build", "Trust building");
+  addFlag("blackmail", "Threat / blackmail");
+  addFlag("unwanted_contact", "Repeated unwanted contact");
 
   if (flags.platform_migration) {
     factors.push({ key: "platform_migration", label: "Off-platform move", points: 10 });

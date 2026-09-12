@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -6,11 +6,14 @@ import { Wordmark } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
+import { useDemoStore } from "@/lib/demo/store";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
 function Login() {
   const { user, isPending } = useCurrentUserState();
+  const navigate = useNavigate();
+  const unlock = useDemoStore((s) => s.unlockDesk);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -58,6 +61,16 @@ function Login() {
         <Link to="/" className="inline-flex">
           <Wordmark />
         </Link>
+        <Button
+          variant="invert"
+          className="w-full"
+          onClick={() => {
+            unlock();
+            void navigate({ to: "/console" });
+          }}
+        >
+          Enter demo response center
+        </Button>
         <Card className="rounded-xl p-1">
           <CardHeader>
             <CardTitle>Responder sign-in</CardTitle>

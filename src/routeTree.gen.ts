@@ -14,9 +14,14 @@ import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as DetectRouteImport } from './routes/detect'
 import { Route as ExitRouteImport } from './routes/exit'
 import { Route as HelpRouteImport } from './routes/help'
+import { Route as ImpactRouteImport } from './routes/impact'
+import { Route as IndiaRouteImport } from './routes/india'
+import { Route as IntelligenceRouteImport } from './routes/intelligence'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ReportRouteImport } from './routes/report'
+import { Route as SupportRouteImport } from './routes/support'
+import { Route as TrustedAdultRouteImport } from './routes/trusted-adult'
 import { Route as ConsoleIndexRouteImport } from './routes/console/index'
 import { Route as ConsoleAnalyticsRouteImport } from './routes/console/analytics'
 import { Route as ConsoleArchitectureRouteImport } from './routes/console/architecture'
@@ -51,6 +56,21 @@ const HelpRoute = HelpRouteImport.update({
   path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ImpactRoute = ImpactRouteImport.update({
+  id: '/impact',
+  path: '/impact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndiaRoute = IndiaRouteImport.update({
+  id: '/india',
+  path: '/india',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntelligenceRoute = IntelligenceRouteImport.update({
+  id: '/intelligence',
+  path: '/intelligence',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -64,6 +84,16 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const ReportRoute = ReportRouteImport.update({
   id: '/report',
   path: '/report',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrustedAdultRoute = TrustedAdultRouteImport.update({
+  id: '/trusted-adult',
+  path: '/trusted-adult',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConsoleIndexRoute = ConsoleIndexRouteImport.update({
@@ -113,9 +143,14 @@ export interface FileRoutesByFullPath {
   '/detect': typeof DetectRoute
   '/exit': typeof ExitRoute
   '/help': typeof HelpRoute
+  '/impact': typeof ImpactRoute
+  '/india': typeof IndiaRoute
+  '/intelligence': typeof IntelligenceRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/report': typeof ReportRouteWithChildren
+  '/support': typeof SupportRoute
+  '/trusted-adult': typeof TrustedAdultRoute
   '/console/analytics': typeof ConsoleAnalyticsRoute
   '/console/architecture': typeof ConsoleArchitectureRoute
   '/console/audit': typeof ConsoleAuditRoute
@@ -130,9 +165,14 @@ export interface FileRoutesByTo {
   '/detect': typeof DetectRoute
   '/exit': typeof ExitRoute
   '/help': typeof HelpRoute
+  '/impact': typeof ImpactRoute
+  '/india': typeof IndiaRoute
+  '/intelligence': typeof IntelligenceRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/report': typeof ReportRouteWithChildren
+  '/support': typeof SupportRoute
+  '/trusted-adult': typeof TrustedAdultRoute
   '/console/analytics': typeof ConsoleAnalyticsRoute
   '/console/architecture': typeof ConsoleArchitectureRoute
   '/console/audit': typeof ConsoleAuditRoute
@@ -149,9 +189,14 @@ export interface FileRoutesById {
   '/detect': typeof DetectRoute
   '/exit': typeof ExitRoute
   '/help': typeof HelpRoute
+  '/impact': typeof ImpactRoute
+  '/india': typeof IndiaRoute
+  '/intelligence': typeof IntelligenceRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/report': typeof ReportRouteWithChildren
+  '/support': typeof SupportRoute
+  '/trusted-adult': typeof TrustedAdultRoute
   '/console/analytics': typeof ConsoleAnalyticsRoute
   '/console/architecture': typeof ConsoleArchitectureRoute
   '/console/audit': typeof ConsoleAuditRoute
@@ -169,9 +214,14 @@ export interface FileRouteTypes {
     | '/detect'
     | '/exit'
     | '/help'
+    | '/impact'
+    | '/india'
+    | '/intelligence'
     | '/login'
     | '/privacy'
     | '/report'
+    | '/support'
+    | '/trusted-adult'
     | '/console/analytics'
     | '/console/architecture'
     | '/console/audit'
@@ -186,9 +236,14 @@ export interface FileRouteTypes {
     | '/detect'
     | '/exit'
     | '/help'
+    | '/impact'
+    | '/india'
+    | '/intelligence'
     | '/login'
     | '/privacy'
     | '/report'
+    | '/support'
+    | '/trusted-adult'
     | '/console/analytics'
     | '/console/architecture'
     | '/console/audit'
@@ -204,9 +259,14 @@ export interface FileRouteTypes {
     | '/detect'
     | '/exit'
     | '/help'
+    | '/impact'
+    | '/india'
+    | '/intelligence'
     | '/login'
     | '/privacy'
     | '/report'
+    | '/support'
+    | '/trusted-adult'
     | '/console/analytics'
     | '/console/architecture'
     | '/console/audit'
@@ -223,9 +283,14 @@ export interface RootRouteChildren {
   DetectRoute: typeof DetectRoute
   ExitRoute: typeof ExitRoute
   HelpRoute: typeof HelpRoute
+  ImpactRoute: typeof ImpactRoute
+  IndiaRoute: typeof IndiaRoute
+  IntelligenceRoute: typeof IntelligenceRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   ReportRoute: typeof ReportRouteWithChildren
+  SupportRoute: typeof SupportRoute
+  TrustedAdultRoute: typeof TrustedAdultRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -266,6 +331,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/impact': {
+      id: '/impact'
+      path: '/impact'
+      fullPath: '/impact'
+      preLoaderRoute: typeof ImpactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/india': {
+      id: '/india'
+      path: '/india'
+      fullPath: '/india'
+      preLoaderRoute: typeof IndiaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intelligence': {
+      id: '/intelligence'
+      path: '/intelligence'
+      fullPath: '/intelligence'
+      preLoaderRoute: typeof IntelligenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -285,6 +371,20 @@ declare module '@tanstack/react-router' {
       path: '/report'
       fullPath: '/report'
       preLoaderRoute: typeof ReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trusted-adult': {
+      id: '/trusted-adult'
+      path: '/trusted-adult'
+      fullPath: '/trusted-adult'
+      preLoaderRoute: typeof TrustedAdultRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/console/': {
@@ -384,9 +484,14 @@ const rootRouteChildren: RootRouteChildren = {
   DetectRoute: DetectRoute,
   ExitRoute: ExitRoute,
   HelpRoute: HelpRoute,
+  ImpactRoute: ImpactRoute,
+  IndiaRoute: IndiaRoute,
+  IntelligenceRoute: IntelligenceRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   ReportRoute: ReportRouteWithChildren,
+  SupportRoute: SupportRoute,
+  TrustedAdultRoute: TrustedAdultRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
