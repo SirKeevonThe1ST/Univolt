@@ -1,0 +1,29 @@
+# Split production topology — NOT used by the live preview.
+# Postgres, Redis, and the Python NLP service are the intended scale-out.
+# All agency credentials are simulated stubs.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: surakshanet
+      POSTGRES_USER: suraksha
+      POSTGRES_PASSWORD: simulated-only
+    ports: ["5432:5432"]
+    labels:
+      role: "schema in migrations/"
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+    labels:
+      role: "event-bus stub — in-process event_log is used in preview"
+
+  nlp:
+    build: ./nlp-service
+    ports: ["8090:8090"]
+    command: uvicorn main:app --host 0.0.0.0 --port 8090
+    labels:
+      role: "swappable NLPProvider"
+
+  # The web app itself is the TanStack Start process in this workspace.

@@ -1,0 +1,28 @@
+SYSTEM/TASK: Build SurakshaNet — multilingual Indian child-safety risk detection & response platform. Protective/detective system only. AI never decides intervention; human responder confirms all irreversible actions. No real predatory content generation except small labeled synthetic test set.
+
+STACK: Next.js frontend, FastAPI backend, PostgreSQL, Redis, Python NLP microservice, JWT+RBAC auth, Docker Compose.
+
+AI ABSTRACTION (mandatory interface, mock/rule-based+LLM-hybrid default, swappable):
+NLPProvider: classify(text,lang_hint)->{grooming_risk,cyberbullying_risk,exploitation_risk,benign,confidence}; detect_language(text)->lang_code; extract_flags(turn,context)->{secrecy,pii_request,isolation,incentive,platform_migration}; explain(case)->{top_factors[],plain_summary}; draft_safety_case(evidence,timeline)->case_json
+
+MODULES (implement all 14):
+1. Grooming/cyberbullying classifier: EN/HI/code-mixed, extensible to more Indian languages.
+2. Code-mixed preprocessing: script normalization, Roman↔Devanagari transliteration, slang/emoji normalization, auto lang/script detection.
+3. Progression analysis: per-thread state machine [contact→trust-building→isolation→exploitation attempt]; persist stage history + risk trend.
+4. Risk scoring: 0-100 = weighted(classifier confidence, stage, persistence, secrecy/PII/image requests, age-gap signal, prior flags); DB-configurable weights; per-message recalculation + history; output risk_band(low/med/high/critical)+contributing_factors[].
+5. Explainability: rule-based triggers + feature weights; plain-language summary; per-turn category-level evidence (no unnecessary verbatim reproduction).
+6. Anonymous reporting: no login, no IP/email/device capture, emoji severity picker, optional text/voice/screenshot, anonymous-tip vs callback toggle, mobile-first, low-bandwidth, auto case ID.
+7. AI safety case: incident summary, risk band/score, timeline, minimal redacted evidence, explanation, recommended urgency; export JSON+PDF; label as AI-generated.
+8. Prioritization: P1-P4 = f(risk_band, stage, time_since_activity, distress_flag); SLA timers; overdue escalation; P1 real-time alert stub.
+9. Responder dashboard: roles admin/responder/NGO; priority queue; case detail w/ evidence+explainability; notes; region view if consented; analytics by region/lang/risk-type.
+10. Assignment/tracking: statuses [new→assigned→in_progress→escalated_to_authorities→resolved→closed]; auto/manual assignment; immutable audit log (actor, timestamp, action).
+11. Privacy: AES-256 at rest, TLS in transit, NER PII redaction pre-storage, pseudonymized IDs, identity separated from evidence data, opt-in/legal-escalation-only identity reveal, configurable retention+auto-purge, access logging, no PII in logs, DPDP Act 2023 + POCSO evidentiary alignment notes.
+12. Safe exit: 1-tap quick-exit (redirect+overwrite history) on every child screen, persistent contextual Childline 1098 access, panic hotkey, critical-risk immediate-help UI (non-alarming).
+13. i18n: JSON-driven, EN/HI/MR/TA minimum, extensible; auto-detect+manual switch; simple non-alarming child-facing copy; voice-input affordance (stub ok).
+14. E2E pipeline: ingestion→scoring→case gen→prioritization→assignment→responder action→resolution; event-driven state machine w/ event log; stubbed POCSO/e-evidence export format. No auto-retraining/feedback loop.
+
+CONSTRAINTS: no real agency integrations/credentials/verification (label all as simulated); no realistic predatory dialogue beyond small labeled synthetic set; AI outputs labeled AI-generated; irreversible actions require human confirm; free-tier libs only, paid APIs as stubs; every child screen ≤1 tap from safe exit.
+
+DELIVERABLES: mermaid architecture diagram; Postgres SQL schema (cases, messages, scores, flags, users/roles, audit_log, scoring_config); OpenAPI route table; full modular code (frontend/backend/nlp-service/shared); seeded synthetic demo conversations (EN, Hinglish, Tamil-English code-mixed, low/med/high/critical, labeled synthetic); unit tests incl. false-positive checks; one E2E case-lifecycle test; Docker Compose + README.
+
+OUTPUT: complete runnable code, no placeholders except explicitly labeled stubs.
