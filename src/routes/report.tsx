@@ -102,8 +102,8 @@ function Report() {
         to: "/report/done",
         search: { id: res.publicId },
       });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send. Try again.");
+    } catch {
+      setError("We couldn't send this right now. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -208,7 +208,20 @@ function Report() {
           </select>
         </div>
 
-        {error && <p className="text-sm text-danger">{error}</p>}
+        {error && (
+          <div className="space-y-3 rounded-xl border border-danger/20 bg-danger/5 p-4 text-center">
+            <p className="text-sm font-medium text-danger">{error}</p>
+            <Button
+              type="submit"
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              disabled={busy}
+            >
+              Try again
+            </Button>
+          </div>
+        )}
 
         <Button type="submit" size="xl" className="w-full" disabled={busy}>
           {busy ? t("sending") : t("send")}

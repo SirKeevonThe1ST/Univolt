@@ -1,5 +1,4 @@
-import { getSql } from "@/lib/db";
-import { nid } from "../utils";
+import { getStorageRepository } from "./storage";
 
 export async function writeAudit(input: {
   actorId?: string | null;
@@ -9,19 +8,8 @@ export async function writeAudit(input: {
   resourceId?: string | null;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
-  const sql = await getSql();
-  await sql`
-    insert into audit_log (id, actor_id, actor_role, action, resource_type, resource_id, metadata)
-    values (
-      ${nid("aud")},
-      ${input.actorId ?? null},
-      ${input.actorRole ?? null},
-      ${input.action},
-      ${input.resourceType},
-      ${input.resourceId ?? null},
-      ${JSON.stringify(input.metadata ?? {})}::jsonb
-    )
-  `;
+  const repo = getStorageRepository();
+  await repo.writeAudit(input);
 }
 
 export async function writeEvent(
@@ -29,11 +17,8 @@ export async function writeEvent(
   eventType: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
-  const sql = await getSql();
-  await sql`
-    insert into event_log (id, case_id, event_type, payload)
-    values (${nid("evt")}, ${caseId}, ${eventType}, ${JSON.stringify(payload)}::jsonb)
-  `;
+  const repo = getStorageRepository();
+  await repo.writeEvent(caseId, eventType, payload);
 }
 
 export async function writeAccess(input: {
@@ -42,9 +27,6 @@ export async function writeAccess(input: {
   resourceId: string;
   purpose: string;
 }): Promise<void> {
-  const sql = await getSql();
-  await sql`
-    insert into access_log (id, actor_id, resource_type, resource_id, purpose)
-    values (${nid("acc")}, ${input.actorId}, ${input.resourceType}, ${input.resourceId}, ${input.purpose})
-  `;
+  const repo = getStorageRepository();
+  await repo.writeAccess(input);
 }

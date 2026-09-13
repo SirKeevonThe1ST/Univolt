@@ -27,7 +27,7 @@ import { Route as ConsoleAnalyticsRouteImport } from './routes/console/analytics
 import { Route as ConsoleArchitectureRouteImport } from './routes/console/architecture'
 import { Route as ConsoleAuditRouteImport } from './routes/console/audit'
 import { Route as ConsoleSettingsRouteImport } from './routes/console/settings'
-import { Route as ReportDoneRouteImport } from './routes/report.done'
+import { Route as ReportDoneRouteImport } from './routes/report_.done'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ConsoleCasesCaseIdRouteImport } from './routes/console/cases.$caseId'
 
@@ -122,9 +122,9 @@ const ConsoleSettingsRoute = ConsoleSettingsRouteImport.update({
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ReportDoneRoute = ReportDoneRouteImport.update({
-  id: '/done',
-  path: '/done',
-  getParentRoute: () => ReportRoute,
+  id: '/report_/done',
+  path: '/report/done',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -148,7 +148,7 @@ export interface FileRoutesByFullPath {
   '/intelligence': typeof IntelligenceRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
-  '/report': typeof ReportRouteWithChildren
+  '/report': typeof ReportRoute
   '/support': typeof SupportRoute
   '/trusted-adult': typeof TrustedAdultRoute
   '/console/analytics': typeof ConsoleAnalyticsRoute
@@ -170,7 +170,7 @@ export interface FileRoutesByTo {
   '/intelligence': typeof IntelligenceRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
-  '/report': typeof ReportRouteWithChildren
+  '/report': typeof ReportRoute
   '/support': typeof SupportRoute
   '/trusted-adult': typeof TrustedAdultRoute
   '/console/analytics': typeof ConsoleAnalyticsRoute
@@ -194,14 +194,14 @@ export interface FileRoutesById {
   '/intelligence': typeof IntelligenceRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
-  '/report': typeof ReportRouteWithChildren
+  '/report': typeof ReportRoute
   '/support': typeof SupportRoute
   '/trusted-adult': typeof TrustedAdultRoute
   '/console/analytics': typeof ConsoleAnalyticsRoute
   '/console/architecture': typeof ConsoleArchitectureRoute
   '/console/audit': typeof ConsoleAuditRoute
   '/console/settings': typeof ConsoleSettingsRoute
-  '/report/done': typeof ReportDoneRoute
+  '/report_/done': typeof ReportDoneRoute
   '/console/': typeof ConsoleIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/console/cases/$caseId': typeof ConsoleCasesCaseIdRoute
@@ -271,7 +271,7 @@ export interface FileRouteTypes {
     | '/console/architecture'
     | '/console/audit'
     | '/console/settings'
-    | '/report/done'
+    | '/report_/done'
     | '/console/'
     | '/api/auth/$'
     | '/console/cases/$caseId'
@@ -288,9 +288,10 @@ export interface RootRouteChildren {
   IntelligenceRoute: typeof IntelligenceRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
-  ReportRoute: typeof ReportRouteWithChildren
+  ReportRoute: typeof ReportRoute
   SupportRoute: typeof SupportRoute
   TrustedAdultRoute: typeof TrustedAdultRoute
+  ReportDoneRoute: typeof ReportDoneRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -422,12 +423,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConsoleSettingsRouteImport
       parentRoute: typeof ConsoleRoute
     }
-    '/report/done': {
-      id: '/report/done'
-      path: '/done'
+    '/report_/done': {
+      id: '/report_/done'
+      path: '/report/done'
       fullPath: '/report/done'
       preLoaderRoute: typeof ReportDoneRouteImport
-      parentRoute: typeof ReportRoute
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -467,17 +468,6 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
 const ConsoleRouteWithChildren =
   ConsoleRoute._addFileChildren(ConsoleRouteChildren)
 
-interface ReportRouteChildren {
-  ReportDoneRoute: typeof ReportDoneRoute
-}
-
-const ReportRouteChildren: ReportRouteChildren = {
-  ReportDoneRoute: ReportDoneRoute,
-}
-
-const ReportRouteWithChildren =
-  ReportRoute._addFileChildren(ReportRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConsoleRoute: ConsoleRouteWithChildren,
@@ -489,9 +479,10 @@ const rootRouteChildren: RootRouteChildren = {
   IntelligenceRoute: IntelligenceRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
-  ReportRoute: ReportRouteWithChildren,
+  ReportRoute: ReportRoute,
   SupportRoute: SupportRoute,
   TrustedAdultRoute: TrustedAdultRoute,
+  ReportDoneRoute: ReportDoneRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

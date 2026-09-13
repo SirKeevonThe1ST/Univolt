@@ -7,45 +7,13 @@ import { writeAccess } from "./audit";
 import type { Json } from "../json";
 import type { StaffProfile } from "./staff";
 
+import { getStorageRepository } from "./storage";
+
 export const getAnalytics = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    await ensureSeeded();
-    await ensureStaffProfile(context.userId, "Responder");
-    const sql = await getSql();
-
-    const byBand = await sql<{ risk_band: string; n: number }>`
-      select risk_band, count(*)::int as n from cases group by risk_band
-    `;
-    const byLang = await sql<{ language: string; n: number }>`
-      select language, count(*)::int as n from cases group by language
-    `;
-    const byRegion = await sql<{ region_code: string; n: number }>`
-      select coalesce(region_code, 'unspecified') as region_code, count(*)::int as n
-      from cases group by 1
-    `;
-    const byPriority = await sql<{ priority: string; n: number }>`
-      select priority, count(*)::int as n from cases group by priority
-    `;
-    const byStatus = await sql<{ status: string; n: number }>`
-      select status, count(*)::int as n from cases group by status
-    `;
-    const flagTypes = await sql<{ flag_type: string; n: number }>`
-      select flag_type, count(*)::int as n from flags group by flag_type order by n desc
-    `;
-    const overdue = await sql<{ n: number }>`
-      select count(*)::int as n from cases
-      where sla_due_at < now() and status not in ('resolved', 'closed')
-    `;
-
-    await writeAccess({
-      actorId: context.userId,
-      resourceType: "analytics",
-      resourceId: "org",
-      purpose: "analytics.view",
-    });
-
-    return { byBand, byLang, byRegion, byPriority, byStatus, flagTypes, overdue: overdue[0]?.n ?? 0 };
+    const repo = getStorageRepository();
+    return repo.getAnalytics(context.userId);
   });
 
 export type AuditRow = {
@@ -62,16 +30,8 @@ export type AuditRow = {
 export const listAudit = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<{ me: StaffProfile; rows: AuditRow[] }> => {
-    const me = await ensureStaffProfile(context.userId, "Responder");
-    const sql = await getSql();
-    const rows = await sql<AuditRow>`
-      select id, actor_id, actor_role, action, resource_type, resource_id, metadata,
-             created_at::text as created_at
-      from audit_log
-      order by created_at desc
-      limit 200
-    `;
-    return { me, rows };
+    const repo = getStorageRepository();
+    return repo.listAudit(context.userId);
   });
 
 export const getScoringConfig = createServerFn({ method: "GET" })

@@ -47,8 +47,7 @@ import {
   PREVIEW_CLIENT_SECRET,
 } from "./preview";
 
-// Kick (and share) PGLite bootstrap as soon as the auth server module loads.
-void ensureDbReady();
+// Database bootstrap is triggered lazily when needed, never eagerly on import.
 
 /**
  * Preview secret must outlive module reloads: PGLite (and its session rows) is

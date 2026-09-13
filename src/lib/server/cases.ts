@@ -1,19 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { getSql } from "@/lib/db";
+import { getStorageRepository } from "./storage";
 import { ensureStaffProfile } from "./staff";
-import { writeAccess, writeAudit, writeEvent } from "./audit";
-import { assertTransition, type CaseStatus } from "../pipeline/lifecycle";
 import { ensureSeeded } from "./seed";
-import { nid } from "../utils";
-import { SLA_MINUTES, type Priority } from "../pipeline/priority";
 import { ingestThread, loadWeights } from "./ingest";
-import { buildTimeline, type ThreadTimeline } from "../pipeline/timeline";
 import { nlpProvider } from "../nlp/provider";
 import { scoreThread } from "../pipeline/scoring";
 import type { Json } from "../json";
 import type { SafetyCasePack, LangCode, ThreadTurn } from "../nlp/types";
 import type { StaffProfile } from "./staff";
+import type { CaseStatus } from "../pipeline/lifecycle";
+import type { Priority } from "../pipeline/priority";
+import type { ThreadTimeline } from "../pipeline/timeline";
 
 export type CaseRow = {
   id: string;
@@ -37,37 +35,6 @@ export type CaseRow = {
   assigned_name: string | null;
   analysis_mode: "live" | "fallback" | null;
 };
-
-export const listCases = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
-  .handler(async ({ context }) => {
-    await ensureSeeded();
-    const me = await ensureStaffProfile(context.userId, "Responder");
-    const sql = await getSql();
-    const rows = await sql<CaseRow>`
-      select
-        c.id, c.public_id, c.source, c.status, c.priority, c.risk_score, c.risk_band,
-        c.stage, c.language, c.region_code, c.callback_requested, c.distress_flag,
-        c.assigned_to, c.sla_due_at::text as sla_due_at,
-        c.last_activity_at::text as last_activity_at, c.ai_generated, c.identity_sealed,
-        c.created_at::text as created_at,
-        s.display_name as assigned_name,
-        sc.pack ->> 'analysis_mode' as analysis_mode
-      from cases c
-      left join staff_profiles s on s.user_id = c.assigned_to
-      left join safety_cases sc on sc.case_id = c.id
-      order by
-        case c.priority when 'P1' then 1 when 'P2' then 2 when 'P3' then 3 else 4 end,
-        c.sla_due_at asc
-    `;
-    await writeAccess({
-      actorId: context.userId,
-      resourceType: "case_list",
-      resourceId: "queue",
-      purpose: "queue.view",
-    });
-    return { me, cases: rows };
-  });
 
 export type CaseDetail = {
   me: StaffProfile;
@@ -103,98 +70,23 @@ export type CaseDetail = {
   timeline: ThreadTimeline;
 };
 
+export const listCases = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    await ensureSeeded();
+    const repo = getStorageRepository();
+    return repo.listCases(context.userId);
+  });
+
 export const getCase = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .validator((id: string) => id)
   .handler(async ({ context, data: id }): Promise<CaseDetail> => {
     await ensureSeeded();
-    const me = await ensureStaffProfile(context.userId, "Responder");
-    const sql = await getSql();
-    const cases = await sql<CaseRow>`
-      select
-        c.id, c.public_id, c.source, c.status, c.priority, c.risk_score, c.risk_band,
-        c.stage, c.language, c.region_code, c.callback_requested, c.distress_flag,
-        c.assigned_to, c.sla_due_at::text as sla_due_at,
-        c.last_activity_at::text as last_activity_at, c.ai_generated, c.identity_sealed,
-        c.created_at::text as created_at,
-        s.display_name as assigned_name
-      from cases c
-      left join staff_profiles s on s.user_id = c.assigned_to
-      where c.id = ${id}
-    `;
-    const row = cases[0];
-    if (!row) throw new Error("Case not found");
-
-    const messages = await sql<CaseDetail["messages"][number]>`
-      select id, turn_index, speaker, lang, redacted_text, created_at::text as created_at
-      from messages where case_id = ${id} order by turn_index
-    `;
-    const scores = await sql<CaseDetail["scores"][number]>`
-      select score, risk_band, contributing_factors, created_at::text as created_at
-      from scores where case_id = ${id} order by created_at
-    `;
-    const flags = await sql<CaseDetail["flags"][number]>`
-      select flag_type, evidence_label from flags where case_id = ${id}
-    `;
-    const stages = await sql<CaseDetail["stages"][number]>`
-      select stage, reason, entered_at::text as entered_at
-      from stage_history where case_id = ${id} order by entered_at
-    `;
-    const events = await sql<CaseDetail["events"][number]>`
-      select event_type, payload, created_at::text as created_at
-      from event_log where case_id = ${id} order by created_at
-    `;
-    const notes = await sql<CaseDetail["notes"][number]>`
-      select n.id, n.author_id, n.body, n.created_at::text as created_at, s.display_name as author_name
-      from case_notes n
-      left join staff_profiles s on s.user_id = n.author_id
-      where n.case_id = ${id}
-      order by n.created_at
-    `;
-    const safety = await sql<{ pack: SafetyCasePack }>`
-      select pack from safety_cases where case_id = ${id}
-    `;
-    const identity = await sql<{ sealed: boolean }>`
-      select sealed from reporter_identity where case_id = ${id}
-    `;
-    const attachments = await sql<CaseDetail["attachments"][number]>`
-      select kind, storage_ref from attachments where case_id = ${id}
-    `;
-
-    await writeAccess({
-      actorId: context.userId,
-      resourceType: "case",
-      resourceId: id,
-      purpose: "case.view",
-    });
-
-    const timeline = buildTimeline(
-      messages.map((m) => ({
-        speaker: (m.speaker === "child" || m.speaker === "reporter" ? m.speaker : "other") as
-          | "child"
-          | "other"
-          | "reporter",
-        text: m.redacted_text,
-        at: m.created_at,
-      })),
-      await loadWeights(),
-    );
-
-    return {
-      me,
-      case: row,
-      messages,
-      scores,
-      flags,
-      stages,
-      events,
-      notes,
-      safetyPack: safety[0]?.pack ?? null,
-      hasSealedIdentity: Boolean(identity[0]),
-      identitySealed: identity[0]?.sealed ?? true,
-      attachments,
-      timeline,
-    };
+    const repo = getStorageRepository();
+    const detail = await repo.getCaseDetail(id, context.userId);
+    if (!detail) throw new Error("Case not found");
+    return detail;
   });
 
 export const transitionCase = createServerFn({ method: "POST" })
@@ -202,46 +94,8 @@ export const transitionCase = createServerFn({ method: "POST" })
   .validator((d: { id: string; to: CaseStatus; confirm: boolean }) => d)
   .handler(async ({ context, data }) => {
     const me = await ensureStaffProfile(context.userId, "Responder");
-    const sql = await getSql();
-    const rows = await sql<{ status: CaseStatus; assigned_to: string | null; priority: Priority }>`
-      select status, assigned_to, priority from cases where id = ${data.id}
-    `;
-    const row = rows[0];
-    if (!row) throw new Error("Case not found");
-
-    const from = row.status;
-    let assigned = row.assigned_to;
-
-    if (data.to === "assigned" && from === "new") {
-      assigned = context.userId;
-    }
-
-    assertTransition(from, data.to, data.confirm);
-
-    let sla: string | null = null;
-    if (data.to === "assigned" || data.to === "in_progress") {
-      const due = new Date(Date.now() + SLA_MINUTES[row.priority] * 60_000);
-      sla = due.toISOString();
-    }
-
-    await sql`
-      update cases set
-        status = ${data.to},
-        assigned_to = ${assigned},
-        sla_due_at = coalesce(${sla}::timestamptz, sla_due_at),
-        last_activity_at = now(),
-        updated_at = now()
-      where id = ${data.id}
-    `;
-    await writeEvent(data.id, "case.status", { from, to: data.to, confirm: data.confirm });
-    await writeAudit({
-      actorId: context.userId,
-      actorRole: me.role,
-      action: `case.${data.to}`,
-      resourceType: "case",
-      resourceId: data.id,
-      metadata: { from, confirm: data.confirm },
-    });
+    const repo = getStorageRepository();
+    await repo.transitionCase(data.id, data.to, context.userId, me.role, data.confirm);
     return { ok: true as const };
   });
 
@@ -250,20 +104,8 @@ export const addNote = createServerFn({ method: "POST" })
   .validator((d: { id: string; body: string }) => d)
   .handler(async ({ context, data }) => {
     const me = await ensureStaffProfile(context.userId, "Responder");
-    const body = data.body.trim();
-    if (!body) throw new Error("Note is empty");
-    const sql = await getSql();
-    await sql`
-      insert into case_notes (id, case_id, author_id, body)
-      values (${nid("nte")}, ${data.id}, ${context.userId}, ${body})
-    `;
-    await writeAudit({
-      actorId: context.userId,
-      actorRole: me.role,
-      action: "case.note",
-      resourceType: "case",
-      resourceId: data.id,
-    });
+    const repo = getStorageRepository();
+    await repo.addCaseNote(data.id, context.userId, me.role, data.body);
     return { ok: true as const };
   });
 
@@ -273,29 +115,8 @@ export const revealIdentity = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     if (!data.confirm) throw new Error("Human confirmation required");
     const me = await ensureStaffProfile(context.userId, "Responder");
-    if (me.role === "ngo") throw new Error("NGO role cannot unseal identity");
-    const sql = await getSql();
-    const rows = await sql<{ encrypted_blob: string | null; sealed: boolean }>`
-      select encrypted_blob, sealed from reporter_identity where case_id = ${data.id}
-    `;
-    const row = rows[0];
-    if (!row?.encrypted_blob) throw new Error("No sealed identity on this case");
-    const { decryptField } = await import("../privacy/crypto");
-    const plain = decryptField(row.encrypted_blob);
-    await sql`
-      update reporter_identity
-      set sealed = false, reveal_authorized_by = ${context.userId}, reveal_authorized_at = now()
-      where case_id = ${data.id}
-    `;
-    await sql`update cases set identity_sealed = false, updated_at = now() where id = ${data.id}`;
-    await writeAudit({
-      actorId: context.userId,
-      actorRole: me.role,
-      action: "identity.reveal",
-      resourceType: "case",
-      resourceId: data.id,
-      metadata: { note: "contact revealed to authorised responder; not written to logs" },
-    });
+    const repo = getStorageRepository();
+    const plain = await repo.revealIdentity(data.id, context.userId, me.role);
     return { contact: plain };
   });
 
@@ -304,25 +125,13 @@ export const regenerateSafetyCase = createServerFn({ method: "POST" })
   .validator((id: string) => id)
   .handler(async ({ context, data: id }) => {
     const me = await ensureStaffProfile(context.userId, "Responder");
-    const sql = await getSql();
-    const cases = await sql<{ priority: Priority; language: string }>`
-      select priority, language from cases where id = ${id}
-    `;
-    const row = cases[0];
-    if (!row) throw new Error("Case not found");
+    const repo = getStorageRepository();
+    const detail = await repo.getCaseDetail(id, context.userId);
+    if (!detail) throw new Error("Case not found");
 
-    const messages = await sql<{ speaker: string; redacted_text: string; turn_index: number }>`
-      select speaker, redacted_text, turn_index from messages
-      where case_id = ${id} order by turn_index
-    `;
-    if (!messages.length) throw new Error("No evidence on this case to build a pack from");
+    if (!detail.messages.length) throw new Error("No evidence on this case to build a pack from");
 
-    const stages = await sql<{ stage: string; reason: string; entered_at: string }>`
-      select stage, reason, entered_at::text as entered_at
-      from stage_history where case_id = ${id} order by entered_at
-    `;
-
-    const turns: ThreadTurn[] = messages.map((m) => ({
+    const turns: ThreadTurn[] = detail.messages.map((m) => ({
       speaker: (m.speaker === "child" || m.speaker === "reporter" ? m.speaker : "other") as
         | "child"
         | "other"
@@ -330,17 +139,23 @@ export const regenerateSafetyCase = createServerFn({ method: "POST" })
       text: m.redacted_text,
     }));
 
-    // Regenerating a case tries the REAL LLM first (same pipeline as the
-    // Intelligence page), and only falls back to the offline lexicon
-    // classifier if the model is unavailable — never presenting one as the
-    // other. Evidence is the already-redacted, already-stored text;
-    // regenerating never re-reads raw input.
     const { analyzeConversation } = await import("@/lib/ai/analyze");
     const { scoreAnalysis } = await import("@/lib/ai/risk-engine");
     const { buildLiveSafetyCasePack } = await import("@/lib/ai/case-pack");
-    const live = await analyzeConversation({
-      messages: turns.map((t) => ({ speaker: t.speaker === "other" ? "other" : "child", text: t.text })),
-    });
+
+    let live: Awaited<ReturnType<typeof analyzeConversation>> = {
+      ok: false,
+      error: "AI unavailable",
+      code: "no_key",
+    };
+
+    try {
+      live = await analyzeConversation({
+        messages: turns.map((t) => ({ speaker: t.speaker === "other" ? "other" : "child", text: t.text })),
+      });
+    } catch (err) {
+      console.warn("[ai] analyzeConversation error during regenerate:", err);
+    }
 
     const weights = await loadWeights();
     let pack: SafetyCasePack;
@@ -364,14 +179,14 @@ export const regenerateSafetyCase = createServerFn({ method: "POST" })
       pack = {
         ...nlpProvider.draft_safety_case({
           evidence: turns,
-          timeline: stages.map((s) => ({ at: s.entered_at, event: `${s.stage}: ${s.reason}` })),
+          timeline: detail.stages.map((s) => ({ at: s.entered_at, event: `${s.stage}: ${s.reason}` })),
           classification: scored.classification,
           flags: scored.flags,
           stage: scored.stage,
           score: scored.score,
           band: scored.band,
-          priority: row.priority,
-          language: row.language as LangCode,
+          priority: detail.case.priority,
+          language: detail.case.language as LangCode,
         }),
         analysis_mode: "fallback",
         pocso_note:
@@ -385,23 +200,7 @@ export const regenerateSafetyCase = createServerFn({ method: "POST" })
       stage = scored.stage;
     }
 
-    await sql`
-      update cases set risk_score = ${score}, risk_band = ${band}, stage = ${stage}
-      where id = ${id}
-    `;
-    await sql`
-      insert into safety_cases (id, case_id, pack)
-      values (${nid("sft")}, ${id}, ${JSON.stringify(pack)}::jsonb)
-      on conflict (case_id) do update set pack = excluded.pack, created_at = now()
-    `;
-    await writeEvent(id, "safety_case.regenerated", { risk_score: score, analysis_mode: live.ok ? "live" : "fallback" });
-    await writeAudit({
-      actorId: context.userId,
-      actorRole: me.role,
-      action: "safety_case.regenerate",
-      resourceType: "case",
-      resourceId: id,
-    });
+    await repo.saveSafetyPack(id, pack, score, band, stage, context.userId, me.role);
     return { pack };
   });
 
@@ -410,25 +209,14 @@ export const exportSafetyPack = createServerFn({ method: "GET" })
   .validator((id: string) => id)
   .handler(async ({ context, data: id }) => {
     await ensureStaffProfile(context.userId, "Responder");
-    const sql = await getSql();
-    const rows = await sql<{ pack: SafetyCasePack; public_id: string }>`
-      select s.pack, c.public_id
-      from safety_cases s join cases c on c.id = s.case_id
-      where s.case_id = ${id}
-    `;
-    if (!rows[0]) throw new Error("No safety pack");
-    await writeAccess({
-      actorId: context.userId,
-      resourceType: "case",
-      resourceId: id,
-      purpose: "export.safety_pack",
-    });
+    const repo = getStorageRepository();
+    const { public_id, pack } = await repo.getSafetyPack(id, context.userId);
     return {
       format: "simulated-pocso-e-evidence-v0" as const,
       disclaimer:
         "SIMULATED. Not a legal filing, not hash-chained e-evidence, and not submitted to any agency.",
-      public_id: rows[0].public_id,
-      pack: rows[0].pack,
+      public_id,
+      pack,
     };
   });
 

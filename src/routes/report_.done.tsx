@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/i18n-provider";
 import { z } from "zod";
 
-export const Route = createFileRoute("/report/done")({
+export const Route = createFileRoute("/report_/done")({
   validateSearch: z.object({ id: z.string().optional() }),
   component: Done,
 });
