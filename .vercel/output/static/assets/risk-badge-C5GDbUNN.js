@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-0vZSBttN.js";import{t}from"./badge-D4hwN3wH.js";var n=e(),r={low:`ok`,med:`warn`,high:`danger`,critical:`ink`,P1:`ink`,P2:`danger`,P3:`warn`,P4:`teal`};function i({band:e}){return(0,n.jsx)(t,{tone:r[e]??`neutral`,children:e})}function a({priority:e}){return(0,n.jsx)(t,{tone:r[e]??`neutral`,children:e})}export{i as n,a as t};
